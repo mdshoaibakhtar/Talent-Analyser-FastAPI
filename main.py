@@ -4,8 +4,8 @@ from typing import List, Dict
 import fitz  # PyMuPDF
 import docx2txt
 import io
-from transformers import pipeline
 from sentence_transformers import SentenceTransformer, util
+from transformers import pipeline, T5Tokenizer, T5ForConditionalGeneration
 import uvicorn
 import base64
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,9 +14,12 @@ from bs4 import BeautifulSoup
 
 app = FastAPI()
 
+
 # Load NLP pipeline & embeddings model
-# ner = pipeline("ner", grouped_entities=True)
-# embedder = SentenceTransformer("all-MiniLM-L6-v2")
+ner = pipeline("ner", grouped_entities=True)
+embedder = SentenceTransformer("all-MiniLM-L6-v2")
+rewrite_tokenizer = T5Tokenizer.from_pretrained("google/flan-t5-base")
+rewrite_model = T5ForConditionalGeneration.from_pretrained("google/flan-t5-base")
 
 origins = [
     "http://localhost.tiangolo.com",
@@ -32,6 +35,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+class ParsedData(BaseModel):
+    text: str
+    entities: List[Dict[str, str]]
 
 class UploadResumeModel(BaseModel):
     file_name: str
@@ -68,6 +75,10 @@ def extract_text_from_base64(base64_str: str, filename: str) -> str:
     else:
         raise ValueError("Unsupported file format")
 
+def parse_entities(text: str) -> List[Dict[str, str]]:
+    return ner(text)
+
+
 def scrape_text_from_url(url: str) -> str:
     headers = {"User-Agent": "Mozilla/5.0"}
     response = requests.get(url, headers=headers)
@@ -79,9 +90,9 @@ def scrape_text_from_url(url: str) -> str:
 
 @app.post("/upload-resume")
 def upload_resume(input: UploadResumeModel):
-    print('Received file:', input)
     text = extract_text_from_base64(input.data, input.file_name)
-    return {"extracted_data": text[:len(text)], "length": len(text)}
+    entities = parse_entities(text)
+    return ParsedData(text=text[:500] + "...", entities=entities)
 
 @app.post("/scrape-url")
 def scrape_url_text(input: UrlInput):
