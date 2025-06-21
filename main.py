@@ -9,7 +9,8 @@ from sentence_transformers import SentenceTransformer, util
 import uvicorn
 import base64
 from fastapi.middleware.cors import CORSMiddleware
-
+import requests
+from bs4 import BeautifulSoup
 
 app = FastAPI()
 
@@ -35,6 +36,9 @@ app.add_middleware(
 class UploadResumeModel(BaseModel):
     file_name: str
     data:str
+
+class UrlInput(BaseModel):
+    url: str
 
 
 def extract_text_from_base64(base64_str: str, filename: str) -> str:
@@ -64,11 +68,25 @@ def extract_text_from_base64(base64_str: str, filename: str) -> str:
     else:
         raise ValueError("Unsupported file format")
 
+def scrape_text_from_url(url: str) -> str:
+    headers = {"User-Agent": "Mozilla/5.0"}
+    response = requests.get(url, headers=headers)
+    if response.status_code != 200:
+        return f"Failed to fetch page: {response.status_code}"
+    soup = BeautifulSoup(response.text, "html.parser")
+    paragraphs = [p.text.strip() for p in soup.find_all("p")]
+    return "\n".join(paragraphs[:20])
+
 @app.post("/upload-resume")
 def upload_resume(input: UploadResumeModel):
     print('Received file:', input)
     text = extract_text_from_base64(input.data, input.file_name)
-    return {"extracted_data": text[:3000], "length": len(text)}
+    return {"extracted_data": text[:len(text)], "length": len(text)}
+
+@app.post("/scrape-url")
+def scrape_url_text(input: UrlInput):
+    text = scrape_text_from_url(input.url)
+    return {"extracted_text": text[:1000] + "..."}
 
 @app.get("/")
 def read_root():
