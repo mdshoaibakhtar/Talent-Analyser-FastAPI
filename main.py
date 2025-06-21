@@ -4,8 +4,9 @@ from typing import List, Dict
 import fitz  # PyMuPDF
 import docx2txt
 import io
+from transformers import pipeline
 from sentence_transformers import SentenceTransformer, util
-from transformers import pipeline, T5Tokenizer, T5ForConditionalGeneration
+# from transformers import pipeline, T5Tokenizer, T5ForConditionalGeneration
 import uvicorn
 import base64
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,12 +15,11 @@ from bs4 import BeautifulSoup
 
 app = FastAPI()
 
-
 # Load NLP pipeline & embeddings model
-ner = pipeline("ner", grouped_entities=True)
-embedder = SentenceTransformer("all-MiniLM-L6-v2")
-rewrite_tokenizer = T5Tokenizer.from_pretrained("google/flan-t5-base")
-rewrite_model = T5ForConditionalGeneration.from_pretrained("google/flan-t5-base")
+# ner = pipeline("ner", grouped_entities=True)
+# embedder = SentenceTransformer("all-MiniLM-L6-v2")
+# rewrite_tokenizer = T5Tokenizer.from_pretrained("google/flan-t5-base")
+# rewrite_model = T5ForConditionalGeneration.from_pretrained("google/flan-t5-base")
 
 origins = [
     "http://localhost.tiangolo.com",
@@ -90,9 +90,9 @@ def scrape_text_from_url(url: str) -> str:
 
 @app.post("/upload-resume")
 def upload_resume(input: UploadResumeModel):
+    # print('Received file:', input)
     text = extract_text_from_base64(input.data, input.file_name)
-    entities = parse_entities(text)
-    return ParsedData(text=text[:500] + "...", entities=entities)
+    return {"extracted_data": text[:len(text)], "length": len(text)}
 
 @app.post("/scrape-url")
 def scrape_url_text(input: UrlInput):
