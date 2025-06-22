@@ -18,7 +18,8 @@ origins = [
     "https://localhost.tiangolo.com",
     "http://localhost",
     "http://localhost:5173",
-    "https://talent-analyser.vercel.app/"
+    "https://talent-analyser.vercel.app/",
+    "https://talent-analyser.vercel.app",
 ]
 
 app.add_middleware(
