@@ -13,6 +13,9 @@ from fastapi.middleware.cors import CORSMiddleware
 import requests
 from bs4 import BeautifulSoup
 
+from app import TestModel
+import openai
+
 app = FastAPI()
 
 # Load NLP pipeline & embeddings model
@@ -42,7 +45,8 @@ class ParsedData(BaseModel):
 
 class UploadResumeModel(BaseModel):
     file_name: str
-    data:str
+    base64_data: str
+    prompt : str
 
 class UrlInput(BaseModel):
     url: str
@@ -91,8 +95,15 @@ def scrape_text_from_url(url: str) -> str:
 @app.post("/upload-resume")
 def upload_resume(input: UploadResumeModel):
     # print('Received file:', input)
-    text = extract_text_from_base64(input.data, input.file_name)
-    return {"extracted_data": text[:len(text)], "length": len(text)}
+    text = extract_text_from_base64(input.base64_data, input.file_name)
+    prompt = text+input.prompt
+    response = openai.OpenAI().get_response(prompt)
+    return {"response": response}
+
+@app.post('/test-openai')
+def test_openai(input : TestModel):
+    response = openai.OpenAI().get_response(input.prompt)
+    return {"response": response}
 
 @app.post("/scrape-url")
 def scrape_url_text(input: UrlInput):
