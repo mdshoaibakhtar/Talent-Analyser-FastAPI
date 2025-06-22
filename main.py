@@ -76,7 +76,7 @@ def extract_text_from_base64(base64_str: str, filename: str) -> str:
         raise ValueError("Unsupported file format")
 
 def parse_entities(text: str) -> List[Dict[str, str]]:
-    return ner(text)
+    return text
 
 
 def scrape_text_from_url(url: str) -> str:
