@@ -1,28 +1,20 @@
 from fastapi import FastAPI, UploadFile, File
 from pydantic import BaseModel
 from typing import List, Dict
-import fitz  # PyMuPDF
+import fitz 
 import docx2txt
 import io
 from transformers import pipeline
-from sentence_transformers import SentenceTransformer, util
-# from transformers import pipeline, T5Tokenizer, T5ForConditionalGeneration
 import uvicorn
 import base64
 from fastapi.middleware.cors import CORSMiddleware
 import requests
 from bs4 import BeautifulSoup
-
+import json
 from app import TestModel
 import openai
 
 app = FastAPI()
-
-# Load NLP pipeline & embeddings model
-# ner = pipeline("ner", grouped_entities=True)
-# embedder = SentenceTransformer("all-MiniLM-L6-v2")
-# rewrite_tokenizer = T5Tokenizer.from_pretrained("google/flan-t5-base")
-# rewrite_model = T5ForConditionalGeneration.from_pretrained("google/flan-t5-base")
 
 origins = [
     "http://localhost.tiangolo.com",
@@ -51,6 +43,10 @@ class UploadResumeModel(BaseModel):
 class UrlInput(BaseModel):
     url: str
 
+class DataAnalysisModel(BaseModel):
+    resume_base64: str
+    jd_base64: str
+    prompt: str
 
 def extract_text_from_base64(base64_str: str, filename: str) -> str:
     """
@@ -79,36 +75,42 @@ def extract_text_from_base64(base64_str: str, filename: str) -> str:
     else:
         raise ValueError("Unsupported file format")
 
-def parse_entities(text: str) -> List[Dict[str, str]]:
-    return text
-
-
 def scrape_text_from_url(url: str) -> str:
     headers = {"User-Agent": "Mozilla/5.0"}
     response = requests.get(url, headers=headers)
     if response.status_code != 200:
         return f"Failed to fetch page: {response.status_code}"
     soup = BeautifulSoup(response.text, "html.parser")
-    paragraphs = [p.text.strip() for p in soup.find_all("p")]
-    return "\n".join(paragraphs[:20])
+    response = openai.OpenAI().get_response("Extract the text from the HTML content of the job description page. Company name, job title, and job description, Just extract the all content from here which help us to understand about job role. Please extract and understand the company from given url `{url}` it should be like https://company_name.domain.com"+soup.prettify())
+    return response
+
+
+@app.post("/data-analysis")
+def data_analysis(input: DataAnalysisModel):
+    resume_text = extract_text_from_base64(input.resume_base64, "resume.pdf")
+    jd_text = extract_text_from_base64(input.jd_base64, "job_description.pdf")
+    prompt = input.prompt + "Resume text: " + resume_text + " Job Description text: " + jd_text
+    # print(prompt)
+    response = openai.OpenAI().get_response(prompt)
+    return {
+        "status_code": 200,
+        "status": "success",
+        "message": "Data analysis completed successfully.",
+        "data": json.loads(response),
+    }
+
 
 @app.post("/upload-resume")
 def upload_resume(input: UploadResumeModel):
-    # print('Received file:', input)
     text = extract_text_from_base64(input.base64_data, input.file_name)
     prompt = text+input.prompt
     response = openai.OpenAI().get_response(prompt)
     return {"response": response}
 
-@app.post('/test-openai')
-def test_openai(input : TestModel):
-    response = openai.OpenAI().get_response(input.prompt)
-    return {"response": response}
-
 @app.post("/scrape-url")
 def scrape_url_text(input: UrlInput):
     text = scrape_text_from_url(input.url)
-    return {"extracted_text": text[:1000] + "..."}
+    return {"extracted_text": text[:len(text)]}
 
 @app.get("/")
 def read_root():
