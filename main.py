@@ -1,17 +1,14 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI
 from pydantic import BaseModel
-from typing import List, Dict
 import fitz 
 import docx2txt
 import io
-from transformers import pipeline
 import uvicorn
 import base64
 from fastapi.middleware.cors import CORSMiddleware
 import requests
 from bs4 import BeautifulSoup
 import json
-from app import TestModel
 import openai
 
 app = FastAPI()
@@ -31,9 +28,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-class ParsedData(BaseModel):
-    text: str
-    entities: List[Dict[str, str]]
 
 class UploadResumeModel(BaseModel):
     file_name: str
