@@ -1,6 +1,6 @@
 from fastapi import FastAPI
+from pdfminer.high_level import extract_text
 from pydantic import BaseModel
-import fitz 
 import docx2txt
 import io
 import uvicorn
@@ -44,22 +44,28 @@ class DataAnalysisModel(BaseModel):
 
 def extract_text_from_base64(base64_str: str, filename: str) -> str:
     """
-    :param base64_str: base64 encoded file content
-    :param filename: original filename with extension to detect file type
-    :return: extracted text
+    Extract text from base64-encoded file content.
+
+    :param base64_str: Base64 encoded file content.
+    :param filename: Original filename with extension to detect file type.
+    :return: Extracted text.
     """
+    # Fix padding if needed
     missing_padding = len(base64_str) % 4
     if missing_padding:
         base64_str += '=' * (4 - missing_padding)
+
+    # Decode and convert to file-like object
     decoded = base64.b64decode(base64_str)
     file_like = io.BytesIO(decoded)
 
     if filename.endswith(".pdf"):
-        pdf = fitz.open(stream=file_like.read(), filetype="pdf")
-        text = "\n".join([page.get_text() for page in pdf])
+        # Extract text using pdfminer.six
+        text = extract_text(file_like)
         return text
 
     elif filename.endswith(".docx"):
+        # Extract text using docx2txt
         text = docx2txt.process(file_like)
         return text
 
@@ -68,7 +74,7 @@ def extract_text_from_base64(base64_str: str, filename: str) -> str:
 
     else:
         raise ValueError("Unsupported file format")
-
+    
 def scrape_text_from_url(url: str) -> str:
     headers = {"User-Agent": "Mozilla/5.0"}
     response = requests.get(url, headers=headers)
